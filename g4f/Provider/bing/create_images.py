@@ -1,5 +1,3 @@
-
-
 import asyncio
 import time, json, os
 from aiohttp import ClientSession
@@ -9,10 +7,12 @@ from typing import Generator
 
 from ...webdriver import WebDriver, get_driver_cookies, get_browser
 from ...Provider.helper import get_event_loop
+from ...base_provider import ProviderType
+from ...Provider.create_images import CreateImagesProvider
 
 BING_URL = "https://www.bing.com"
 
-def wait_for_login(driver: WebDriver, timeout: int = 1200):
+def wait_for_login(driver: WebDriver, timeout: int = 1200) -> Generator:
     driver.get(f"{BING_URL}/")
     value = driver.get_cookie("_U")
     if value:
@@ -29,7 +29,7 @@ def wait_for_login(driver: WebDriver, timeout: int = 1200):
             return
         time.sleep(0.1)
 
-def create_session(cookies: dict):
+def create_session(cookies: dict) -> ClientSession:
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "accept-encoding": "gzip, deflate, br",
@@ -51,7 +51,7 @@ def create_session(cookies: dict):
         headers["cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
     return ClientSession(headers=headers)
 
-async def create_images(session: ClientSession, prompt: str, proxy: str = None, timeout: int = 200):
+async def create_images(session: ClientSession, prompt: str, proxy: str = None, timeout: int = 200) -> list:
     url_encoded_prompt = quote(prompt)    
     payload = f"q={url_encoded_prompt}&rt=4&FORM=GENCRE"
     url = f"{BING_URL}/images/create?q={url_encoded_prompt}&rt=4&FORM=GENCRE"
@@ -111,7 +111,10 @@ async def create_images(session: ClientSession, prompt: str, proxy: str = None, 
 
 def format_images_markdown(images: list, prompt: str) -> str:
     images = [f"[![#{idx+1} {prompt}]({image}?w=200&h=200)]({image})" for idx, image in enumerate(images)]
-    return f"\n\n<img data-prompt=\"{prompt}\">\n<!-- generated images start -->\n" + ("\n".join(images)) + "\n<!-- generated images end -->\n\n"
+    images = "\n".join(images)
+    start_flag = "<!-- generated images start -->\n"
+    end_flag = "<!-- generated images end -->\n"
+    return f"\n\n<img data-prompt=\"{prompt}\">\n{start_flag}{images}\n{end_flag}\n"
 
 def get_images(text: str) -> list:
     html_soup = BeautifulSoup(text, "html.parser")
@@ -144,3 +147,6 @@ def create_completion(prompt: str, proxy: str = None) -> Generator:
         yield format_images_markdown(images, prompt)
     finally:
         driver.quit()
+
+def patch_provider(provider: ProviderType) -> CreateImagesProvider:
+    return CreateImagesProvider(provider, create_completion)

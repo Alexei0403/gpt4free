@@ -35,9 +35,9 @@ async def delete_conversation(session: ClientSession, conversation: Conversation
         "source": "cib",
         "optionsSets": ["autosave"]
     }
-    async with session.post(url, json=json, proxy=proxy) as response:
-        try:
+    try:
+        async with session.post(url, json=json, proxy=proxy) as response:
             response = await response.json()
             return response["result"]["value"] == "Success"
-        except:
-            return False
+    except:
+        return False
