@@ -6,8 +6,13 @@ import json
 from flask      import request, Flask
 from .internet  import get_search_message
 from g4f import debug, version
-
+from g4f.base_provider import ProviderType
 debug.logging = True
+
+def patch_provider(provider: ProviderType):
+    from g4f.Provider import CreateImagesProvider
+    from g4f.Provider.bing.create_images import create_completion
+    return CreateImagesProvider(provider, create_completion)
 
 class Backend_Api:
     def __init__(self, app: Flask) -> None:
@@ -72,7 +77,8 @@ class Backend_Api:
         model = model if model else g4f.models.default
         provider = request.json.get('provider', '').replace('g4f.Provider.', '')
         provider = provider if provider and provider != "Auto" else None
-            
+        patch = patch_provider if request.json.get('patch_provider') else None
+
         def try_response():
             try:
                 first = True
@@ -81,7 +87,8 @@ class Backend_Api:
                     provider=provider,
                     messages=messages,
                     stream=True,
-                    ignore_stream_and_auth=True
+                    ignore_stream_and_auth=True,
+                    patch_provider=patch
                 ):
                     if first:
                         first = False
